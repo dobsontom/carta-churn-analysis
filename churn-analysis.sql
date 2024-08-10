@@ -21,11 +21,11 @@ WITH
          contract_value,
          subscription_start_dttm,
          subscription_end_dttm,
-         -- Apply churn flag logic here with a one month buffer as agreed with the Sales Director.
+         -- Apply churn flag logic with a one week buffer as agreed with the Sales Director.
          -- This could be done earlier in the pipeline for efficiency, but it is included here
          -- for visibility in this example.
          CASE
-            WHEN DATE_ADD(subscription_end_dttm, INTERVAL 1 MONTH) < CURRENT_DATE THEN 1
+            WHEN DATE_ADD(subscription_end_dttm, INTERVAL 1 WEEK) < CURRENT_DATE THEN 1
             ELSE 0
          END AS churn_flag,
          `date`

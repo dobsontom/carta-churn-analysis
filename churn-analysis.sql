@@ -12,16 +12,16 @@ WITH
          subscription_start_dttm,
          subscription_end_dttm,
          CASE
-            WHEN DATE_ADD(subscription_end_dttm INTERVAL 1 MONTH) < CURRENT_DATE THEN 1
+            WHEN DATE_ADD(subscription_end_dttm, INTERVAL 1 MONTH) < CURRENT_DATE THEN 1
             ELSE 0
          END AS churn_flag,
-         DATE
+         `date`
          -- etc.
       FROM
-         `project.dataset.subscription_fact`
+         {{ ref('subscription_fact') }}
          JOIN start_date ON 1 = 1
       WHERE
-         DATE >= dates.start_date
+         `date` >= start_date.start_date
    ),
    add_customer AS (
       SELECT
@@ -32,17 +32,18 @@ WITH
          -- etc.
       FROM
          subscription_base s
-         LEFT JOIN `project.dataset.customer_dim` c ON s.location_id = c.location_id
+         LEFT JOIN {{ ref('customer_dim') }} c ON s.location_id = c.location_id
    ),
    add_location AS (
-      c.*,
-      l.country,
-      l.region,
-      l.city
-      -- etc.
+      SELECT
+         c.*,
+         l.country,
+         l.region,
+         l.city
+         -- etc.
       FROM
          add_customer c
-         LEFT JOIN `project.dataset.country_dim` ON c.location_id = l.location_id
+         LEFT JOIN {{ ref('location_dim') }} l ON c.location_id = l.location_id
    )
 SELECT
    *

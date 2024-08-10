@@ -1,8 +1,18 @@
+{{
+  config(
+    materialized='table'
+  )
+}}
+
 WITH
+   -- Limit the volume of data being processed to the date range agreed with the Sales Director.
+   -- This filter could be applied at the staging phase for improved performance and cost savings,
+   -- but it is added here for clarity in the final model.
    start_date AS (
       SELECT
          DATE_SUB(CURRENT_DATE(), INTERVAL 2 YEARS) AS start_date
    ),
+   
    subscription_base AS (
       SELECT
          subscription_id,
@@ -11,6 +21,9 @@ WITH
          contract_value,
          subscription_start_dttm,
          subscription_end_dttm,
+         -- Apply churn flag logic here with a one month buffer as agreed with the Sales Director.
+         -- This could be done earlier in the pipeline for efficiency, but it is included here
+         -- for visibility in this example.
          CASE
             WHEN DATE_ADD(subscription_end_dttm, INTERVAL 1 MONTH) < CURRENT_DATE THEN 1
             ELSE 0
@@ -19,10 +32,12 @@ WITH
          -- etc.
       FROM
          {{ ref('subscription_fact') }}
+         -- An explicit join is used here for ease of reading and maintainability.
          JOIN start_date ON 1 = 1
       WHERE
          `date` >= start_date.start_date
    ),
+   
    add_customer AS (
       SELECT
          s.*,
@@ -32,8 +47,9 @@ WITH
          -- etc.
       FROM
          subscription_base s
-         LEFT JOIN {{ ref('customer_dim') }} c ON s.location_id = c.location_id
+         LEFT JOIN {{ ref('customer_dim') }} c ON s.customer_id = c.customer_id
    ),
+   
    add_location AS (
       SELECT
          c.*,
@@ -45,6 +61,8 @@ WITH
          add_customer c
          LEFT JOIN {{ ref('location_dim') }} l ON c.location_id = l.location_id
    )
+   
+-- Final selection of data, integrating subscription, customer, and location details.
 SELECT
    *
 FROM

@@ -5,9 +5,9 @@
 }}
 
 WITH
-   -- Limit the volume of data being processed to the date range agreed with the Sales Director.
-   -- This filter could be applied at the staging phase for improved performance and cost savings,
-   -- but it is added here for clarity in the final model.
+   -- Used to limit the volume of data being processed to the agreed date range. This filter 
+   -- could be applied at the staging phase for improved performance and cost savings,
+   -- but is included here in the final model for clarity.
    start_date AS (
       SELECT
          DATE_SUB(CURRENT_DATE(), INTERVAL 2 YEARS) AS start_date
@@ -15,55 +15,67 @@ WITH
    
    subscription_base AS (
       SELECT
-         subscription_id,
-         customer_id,
-         location_id,
-         contract_value,
-         subscription_start_dttm,
-         subscription_end_dttm,
+         sf.subscription_id,
+         sf.customer_id,
+         sf.location_id,
+         sf.contract_value,
+         sf.subscription_start_dttm,
+         sf.subscription_end_dttm,
          -- Apply churn flag logic with a one week buffer as agreed with the Sales Director.
-         -- This could be done earlier in the pipeline for efficiency, but it is included here
-         -- for visibility in this example.
+         -- This could be done earlier in the pipeline for efficiency, but it is included in
+         -- this example for visibility.
          CASE
-            WHEN DATE_ADD(subscription_end_dttm, INTERVAL 1 WEEK) < CURRENT_DATE THEN 1
+            WHEN CURRENT_DATE > DATE_ADD(sf.subscription_end_dttm, INTERVAL 1 WEEK) THEN 1
             ELSE 0
          END AS churn_flag,
-         `date`
+         row_date
          -- etc.
       FROM
-         {{ ref('subscription_fact') }}
+         {{ ref('subscription_fact') }} sf
          -- An explicit join is used here for ease of reading and maintainability.
-         JOIN start_date ON 1 = 1
+         JOIN start_date sd ON 1 = 1
       WHERE
-         `date` >= start_date.start_date
+         row_date >= sd.start_date
    ),
-   
+
    add_customer AS (
       SELECT
-         s.*,
-         c.customer_name,
-         c.customer_email,
-         c.customer_phone
+         sb.*,
+         cd.customer_name,
+         cd.customer_email,
+         cd.customer_phone
          -- etc.
       FROM
-         subscription_base s
-         LEFT JOIN {{ ref('customer_dim') }} c ON s.customer_id = c.customer_id
+         subscription_base sb
+         LEFT JOIN {{ ref('customer_dim') }} cd ON sb.customer_id = cd.customer_id
    ),
-   
+
    add_location AS (
       SELECT
          c.*,
-         l.country,
-         l.region,
-         l.city
+         ld.country,
+         ld.region,
+         ld.city
          -- etc.
       FROM
          add_customer c
-         LEFT JOIN {{ ref('location_dim') }} l ON c.location_id = l.location_id
+         LEFT JOIN {{ ref('location_dim') }} ld ON c.location_id = ld.location_id
    )
-   
--- Final selection of data, integrating subscription, customer, and location details.
+
+   -- Final selection of data, integrating subscription, customer, and location details.
 SELECT
-   *
+   subscription_id,
+   customer_id,
+   location_id,
+   contract_value,
+   subscription_start_dttm,
+   subscription_end_dttm,
+   customer_name,
+   customer_email,
+   customer_phone,
+   country,
+   region,
+   city,
+   churn_flag
 FROM
    add_location;

@@ -12,7 +12,7 @@ WITH
       SELECT
          DATE_SUB(CURRENT_DATE(), INTERVAL 2 YEARS) AS start_date
    ),
-   
+
    subscription_base AS (
       SELECT
          sf.subscription_id,
@@ -62,7 +62,7 @@ WITH
          LEFT JOIN {{ ref('location_dim') }} ld ON c.location_id = ld.location_id
    )
 
-   -- Final selection of data, integrating subscription, customer, and location details.
+-- Final selection of data, integrating subscription, customer, and location details.
 SELECT
    subscription_id,
    customer_id,
